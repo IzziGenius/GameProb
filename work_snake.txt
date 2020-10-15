@@ -1,0 +1,181 @@
+package com.mygdx.starsnake;
+
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+
+public class GameField extends ApplicationAdapter {
+	SpriteBatch batch;
+	Snake snake;
+	StarApple starApple;
+	Texture apple;
+	
+	@Override
+	public void create () {					//создаём змейку на игровом поле
+		batch = new SpriteBatch();
+		snake= new Snake( new Texture("robot.png"));	
+		apple= new Texture("star.png");
+		starApple= StarApple.spaw(apple);		//яблоки создаются спавном
+	}
+
+	@Override
+	public void render () {					//отрисовываем на игровом поле все объекты
+		snake.move();
+		if(snake.eat(starApple)){
+			starApple= StarApple.spaw(apple);
+		}
+		Gdx.gl.glClearColor(0, 0.2f,0.3f, 0.1f);		//отрисовываем фон и задаем цвет
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+		batch.begin();
+		snake.draw(batch);
+		starApple.draw(batch);
+		batch.end();
+		keyPressed();
+	}
+	public  void keyPressed(){					//регестрируем нажатия и прописываем действия
+		if(Gdx.input.isKeyPressed(Input.Keys.LEFT))			//если нажата определенная кнопка, то вызваем метод destination, что перремещает змейку 
+			snake.destination(Snake.LEFT);				//по условиям, указанным в методе
+		if(Gdx.input.isKeyPressed(Input.Keys.RIGHT))
+			snake.destination(Snake.RIGHT);
+		if(Gdx.input.isKeyPressed(Input.Keys.UP))
+			snake.destination(Snake.UP);
+		if(Gdx.input.isKeyPressed(Input.Keys.DOWN))
+			snake.destination(Snake.DOWN);
+	}
+
+	@Override
+	public void dispose () {					//убераем ненужные объекты
+		batch.dispose();
+		snake.dispose();
+		apple.dispose();
+		starApple.dispose();
+	}
+}
+package com.mygdx.starsnake;
+
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.TimeUtils;
+
+import org.w3c.dom.css.Rect;
+
+import java.util.LinkedList;
+
+public class Snake extends  Unit{
+
+    public static final int LEFT=0, RIGHT=1, UP=2, DOWN=3;
+    private int h=50, dx=h, dy=0;
+    private long lastTimeMove= TimeUtils.nanoTime();				//lastTimeMove- помнит, в какой момент времени змейка сделала последний шаг, т е  текущее системное время
+    private long timeMove= 500000000;
+    private LinkedList<Rectangle>list;
+
+    public Snake(Texture img) {							//в конструкторе земейки прописываем, как она создается- вызывается рисунок и 
+        super(img);								//и ими в цикле заполняется лист
+        list= new LinkedList<Rectangle>();
+        for (int i = 0; i <5 ; i++) {
+            list.add(new Rectangle(x+h*i, y, h, h));
+        }
+    }
+    public void draw(SpriteBatch batch){					//метод отрисовки- отрисовывается каждый объект листа через цикл
+        for (Rectangle r:list) {
+            batch.draw(img, r.x, r.y, h, h);
+        }
+    }
+
+    @Override
+    public void move() {							//движение змейки- как только со времени послдней отрисовки   прходит
+        if(Math.abs(lastTimeMove-TimeUtils.nanoTime())>timeMove){		//полсекунды, к змейке прибавляется головной элемент и перерисовывается
+            lastTimeMove= TimeUtils.nanoTime();						
+            Rectangle head= list.getFirst();					//назначаем голову- первый элемент листа "змейки"
+            list.addFirst(new Rectangle(head.x+dx, head.y+dy, h, h));		//в лист змейки добавляется головной элемент по координатам, зависящим от положения головного элемента
+            list.removeLast();							последний элемент листа змейки удаляется
+        }
+    }
+    public boolean eat(StarApple starApple){					//метод поедания яблок и увеличения
+        Rectangle head= list.getFirst();					//получаем координаты первого элемента листа змейки
+        Rectangle apple= starApple.getRectangle();				//получаем координаты яблока
+        if(head.overlaps(apple)){						//и если они совпали, то добавляем в лист элемент и увеличиваем скорость передвижения
+            list.addFirst(apple);
+            timeMove-=10000000;
+        }
+        return  head.overlaps(apple);						// метод возвращает правда или нет, что совпали координаты годовы и яблока
+    }
+
+
+    public void destination(int d) {						//метод для указания направления. Принимает по параметрам нажатую кнопку, и меняет 
+    switch (d) {								//переменные, по которым движется змейка, в соответствии с условиями
+        case UP: dx = 0; dy=h;							
+            break;
+        case RIGHT: dx=h; dy=0;
+            break;
+        case LEFT:dx=-h; dy=0;
+            break;
+        case DOWN:dx=0; dy=-h;
+            break;
+    }
+    }
+}
+package com.mygdx.starsnake;
+
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
+
+import java.util.Random;
+
+public class StarApple extends  Unit {
+
+    public  static Random random= new Random();
+   static int h=50;
+    public StarApple(Texture img) {						//принимает рисунок и вызывает конструктор Юнита. Рисунок делается текущим рисунком				
+        super(img);
+    }
+
+    @Override
+    public void draw(SpriteBatch batch) {					//принимает по параметру переменную класса, умеющего отрисовывать текстуры
+        batch.draw(img, x, y, h, h);						//и методом draw данной переменной отрисовывает узображение по заданным координатам
+    }
+
+    public  static StarApple spaw(Texture img){					//метод спавна отрисовывает новые яблоки. он принимает по параметру изображение
+        StarApple starApple= new StarApple(img);					//создает переменную с этим изображением и 
+        starApple.x= random.nextInt(10)*h;						//задает её нужные кооридинаты, а затем её отрисовывают на GameFields
+        starApple.y= random.nextInt(10)*h;
+        return starApple;
+    }
+
+    public Rectangle getRectangle(){						//метод, необходимый для получения координат. применялся в методе eat для сравнения координат яблока и головы
+        return new Rectangle(x, y, h, h);
+    }
+
+    @Override
+    public void move() {
+
+    }
+}
+package com.mygdx.starsnake;
+
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+
+public  abstract class Unit {
+    protected Texture img;
+    protected int x= 0, y=0;
+
+    public Unit(Texture img) {							//конструктор принимает по параметру изображение и назначает его полем класса
+        this.img = img;
+    }
+
+    public abstract void draw(SpriteBatch batch);
+    public abstract void move();
+
+
+    public  void dispose(){
+        img.dispose();
+    }
+
+}
+
